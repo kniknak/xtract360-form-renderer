@@ -109,6 +109,7 @@ const sameFields = (left: ParsedField[], right: ParsedField[]) =>
   left.length === right.length && left.every((field, index) => field === right[index]);
 
 export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedField[] => {
+  let previous = fields;
   let visible = fields;
 
   for (let pass = 0; pass <= fields.length; pass++) {
@@ -116,10 +117,11 @@ export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedFie
     const next = fields.filter((field) => isVisible(field, data));
 
     if (sameFields(next, visible)) return next;
+    previous = visible;
     visible = next;
   }
 
-  return visible;
+  return visible.filter((field) => previous.includes(field));
 };
 
 export const validateFields = (fields: ParsedField[], draft: Incident): Record<string, string> =>

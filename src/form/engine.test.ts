@@ -323,6 +323,25 @@ describe("visibleFields", () => {
       ).toEqual(["Type", "Memo"]);
     });
 
+    it("hides a field whose condition keeps flipping its own visibility", () => {
+      const selfDependent = parse([
+        { type: "textInput", label: "Name", path: "name" },
+        { type: "textInput", label: "City", path: "city" },
+        {
+          type: "integerInput",
+          label: "X",
+          path: "x",
+          visibleWhen: { not: { path: "x", equals: 1 } },
+        },
+      ]);
+      const labels = (fields: typeof selfDependent, draft: Incident) =>
+        visibleFields(fields, draft).map((f) => f.spec.label);
+
+      expect(labels(selfDependent, { x: 1 })).toEqual(["Name", "City"]);
+      expect(labels(selfDependent.slice(1), { x: 1 })).toEqual(["City"]);
+      expect(labels(selfDependent, { x: 2 })).toEqual(["Name", "City", "X"]);
+    });
+
     it("lets a visible field sharing a hidden field's path keep dependents visible", () => {
       expect(
         visibleFields(fields, { type: "Car", payload: 2000 }).map((f) => f.spec.label),
