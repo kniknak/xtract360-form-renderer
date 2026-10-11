@@ -132,4 +132,32 @@ describe("applySubmission", () => {
       vehicle: { ...incident.vehicle, regplate: null },
     });
   });
+
+  it("leaves data untouched when the form is submitted unchanged", () => {
+    const data = {
+      driver: { age: 30, licence: "car" },
+      shared: "yes",
+      drivers: [{ name: "A" }, { name: "B" }],
+      claim: { amount: { currency: "JPY", value: 10, rate: 1.2 } },
+    };
+    const fields = parse([
+      { type: "textInput", label: "Age as text", path: "driver.age" },
+      { type: "enumInput", label: "Licence", path: "driver.licence", values: ["Car", "Van"] },
+      { type: "textInput", label: "Shared text", path: "shared" },
+      { type: "integerInput", label: "Shared int", path: "shared" },
+      { type: "enumInput", label: "Shared enum", path: "shared", values: ["no"] },
+      { type: "textInput", label: "First driver", path: "drivers.0.name" },
+    ]);
+
+    expect(applySubmission(fields, buildDraft(fields, data), data)).toEqual(data);
+  });
+
+  it("writes into arrays by index without turning them into objects", () => {
+    const data = { drivers: [{ name: "A" }, { name: "B" }] };
+    const fields = parse([{ type: "textInput", label: "Second driver", path: "drivers.1.name" }]);
+
+    expect(applySubmission(fields, { drivers: [{ name: "A" }, { name: "Bea" }] }, data)).toEqual({
+      drivers: [{ name: "A" }, { name: "Bea" }],
+    });
+  });
 });

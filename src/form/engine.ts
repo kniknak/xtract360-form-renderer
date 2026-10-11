@@ -1,3 +1,4 @@
+import { equals } from "ramda";
 import { parseCondition, evaluate } from "./conditions";
 import { fieldRegistry } from "./fields/registry";
 import { getAt, setAt } from "./paths";
@@ -88,7 +89,7 @@ export const validateFields = (fields: ParsedField[], draft: Incident): Errors =
 export const applySubmission = (fields: ParsedField[], draft: Incident, incident: Incident): Incident =>
   fields.reduce((result, field) => {
     const value = readValue(field, draft);
+    if (equals(value, readValue(field, incident))) return result;
 
-    if (!field.definition.isEmpty(value)) return setAt(result, field.spec.path, value);
-    return getAt(incident, field.spec.path) === undefined ? result : setAt(result, field.spec.path, null);
+    return setAt(result, field.spec.path, field.definition.isEmpty(value) ? null : value);
   }, incident);

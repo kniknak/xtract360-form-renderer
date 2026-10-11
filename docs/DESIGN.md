@@ -16,8 +16,9 @@
   incident stores `3554.5`; rejecting the existing data would block every submission.
 - **Spec drift:** the sample config comment says `amount`, the data and spec use `value` — `value`
   is used.
-- **Clearing a field** that had a value writes `null`; an empty field that never had a value writes
-  nothing, so submitting an untouched form does not add empty keys.
+- **Only changed fields write.** Submitting an untouched form returns the incident unchanged — no
+  type coercion (`30` → `"30"`), no nulling of values a field cannot show, no sibling on a shared
+  path clobbering another. Clearing a value writes `null`.
 - **Hidden fields** are not validated and not written, even if the user filled them before the
   condition changed.
 - **Fields sharing a path** (as in the sample config) are allowed; each coerces the shared value to
@@ -31,4 +32,6 @@
 - Async/remote enum values, cross-field validation (e.g. `max` from another path).
 - Per-field memoisation if forms grow to hundreds of fields (the whole form re-renders on change).
 - Validating config at load time with a schema (zod) and surfacing it to config authors.
-- Array paths (`drivers.0.name`) already resolve; repeating groups would need a new field type.
+- Numeric path segments index arrays (`drivers.0.name`); repeating groups would need a new field type.
+- Open edges: a hidden field's value still feeds other conditions; currency data keyed `amount`
+  (as one spec comment says) is not read; extra keys on a currency object are dropped when edited.

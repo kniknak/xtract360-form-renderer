@@ -39,8 +39,9 @@ incident ───────────────────────�
 - **Draft** — the form edits a copy of the incident (with config `defaultValue`s filled in where
   the incident has nothing). Fields read and write it by path, so conditions see live values and
   incident values through the same lookup.
-- **Submit** — validates only visible fields, then writes each visible field's value to its path
-  on the original incident. Hidden fields never write.
+- **Submit** — validates only visible fields, then writes each visible field whose value changed
+  to its path on the original incident. Untouched fields and hidden fields never write, so data a
+  field cannot represent (a number under a text field, an enum value outside `values`) survives.
 
 ### Config extensions
 

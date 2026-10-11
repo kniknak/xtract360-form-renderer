@@ -1,7 +1,7 @@
 import { assocPath, path as ramdaPath } from "ramda";
 import type { Incident } from "./types";
 
-const segments = (path: string) => path.split(".");
+const segments = (path: string) => path.split(".").map((key) => (/^\d+$/.test(key) ? Number(key) : key));
 
 export const getAt = (data: unknown, path: string): unknown =>
   ramdaPath(segments(path), data);
