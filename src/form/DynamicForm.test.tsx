@@ -35,4 +35,15 @@ describe("DynamicForm", () => {
 
     expect(screen.getByLabelText("Price")).toHaveValue("1000000000000.01");
   });
+
+  it("saves whole numbers up to the largest safe integer and refuses digits beyond it", async () => {
+    const user = userEvent.setup();
+    const onSubmit = renderForm([{ type: "integerInput", label: "Count", path: "count" }], {});
+
+    await user.type(screen.getByLabelText("Count"), "90071992547409919");
+    expect(screen.getByLabelText("Count")).toHaveValue("9007199254740991");
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSubmit).toHaveBeenCalledWith({ count: 9007199254740991 }, ["count"]);
+  });
 });

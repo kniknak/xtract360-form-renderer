@@ -138,18 +138,4 @@ describe("App", () => {
     }
     expect(changed.queryByText("vehicle.tradeValue")).not.toBeInTheDocument();
   });
-
-  it("accepts whole numbers up to the largest safe integer and no further", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.clear(screen.getByLabelText("Driver Age"));
-    await user.type(screen.getByLabelText("Driver Age"), "12345678901234567890");
-
-    expect(screen.getByLabelText("Driver Age")).toHaveValue("1234567890123456");
-
-    await user.clear(screen.getByLabelText("Driver Age"));
-    await user.type(screen.getByLabelText("Driver Age"), "90071992547409919");
-    expect(screen.getByLabelText("Driver Age")).toHaveValue("9007199254740991");
-  });
 });
