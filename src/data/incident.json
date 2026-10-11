@@ -1,0 +1,7 @@
+{
+  "vehicle": {
+    "regplate": "ABC1234",
+    "tradeValue": { "currency": "EUR", "value": 3554.5 }
+  },
+  "driver": {}
+}

@@ -1,0 +1,36 @@
+[
+  {
+    "type": "textInput",
+    "label": "Driver Name",
+    "path": "driver.name",
+    "defaultValue": "Peter Nolan"
+  },
+  {
+    "type": "textInput",
+    "label": "Vehicle Regplate",
+    "path": "vehicle.regplate"
+  },
+  {
+    "type": "enumInput",
+    "label": "Vehicle Type",
+    "path": "vehicle.type",
+    "values": ["Car", "Van", "Motorbike"],
+    "defaultValue": "Car"
+  },
+  {
+    "type": "integerInput",
+    "label": "Driver Age",
+    "path": "driver.age",
+    "min": 0,
+    "max": 130,
+    "defaultValue": 30
+  },
+  {
+    "type": "currencyInput",
+    "label": "Vehicle Trade Value",
+    "path": "vehicle.tradeValue",
+    "min": 0,
+    "max": 1000000,
+    "currencies": ["EUR", "USD", "GBP"]
+  }
+]

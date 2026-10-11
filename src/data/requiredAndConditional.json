@@ -1,0 +1,47 @@
+[
+  { "type": "textInput", "label": "Driver Name", "path": "driver.name", "required": true },
+  {
+    "type": "enumInput",
+    "label": "Vehicle Type",
+    "path": "vehicle.type",
+    "values": ["Car", "Van", "Motorbike"],
+    "required": true
+  },
+  {
+    "type": "integerInput",
+    "label": "Payload (kg)",
+    "path": "vehicle.payloadKg",
+    "min": 0,
+    "max": 3500,
+    "required": true,
+    "visibleWhen": { "path": "vehicle.type", "equals": "Van" }
+  },
+  {
+    "type": "enumInput",
+    "label": "Helmet worn?",
+    "path": "driver.helmet",
+    "values": ["Yes", "No"],
+    "visibleWhen": { "path": "vehicle.type", "equals": "Motorbike" }
+  },
+  {
+    "type": "textInput",
+    "label": "Reason for high valuation",
+    "path": "vehicle.valuationNote",
+    "visibleWhen": {
+      "all": [
+        { "path": "vehicle.tradeValue.value", "gt": 3000 },
+        { "path": "vehicle.tradeValue.currency", "in": ["EUR", "GBP"] }
+      ]
+    }
+  },
+  {
+    "type": "currencyInput",
+    "label": "Vehicle Trade Value",
+    "path": "vehicle.tradeValue",
+    "max": 1000000,
+    "currencies": ["EUR", "USD", "GBP"],
+    "required": true
+  },
+  { "type": "dateInput", "label": "Unsupported type — skipped", "path": "incident.date" },
+  { "type": "textInput", "label": "Missing path — skipped" }
+]
