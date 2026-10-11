@@ -8,6 +8,8 @@ type NumberInputProps = Omit<TextFieldProps, "value" | "onChange"> & {
   onChange: (value: number | null) => void;
 };
 
+const MAX_DIGITS = 15;
+
 const toText = (value: number | null) => (value === null ? "" : String(value));
 
 const parseText = (text: string) => {
@@ -22,7 +24,9 @@ const NumberInput = ({ value, decimals, onChange, ...props }: NumberInputProps) 
     setText((current) => (parseText(current) === value ? current : toText(value)));
   }, [value]);
 
-  const pattern = decimals > 0 ? new RegExp(`^-?\\d*(\\.\\d{0,${decimals}})?$`) : /^-?\d*$/;
+  const pattern = new RegExp(
+    `^-?\\d{0,${MAX_DIGITS - decimals}}${decimals > 0 ? `(\\.\\d{0,${decimals}})?` : ""}$`,
+  );
 
   const handleChange = (next: string) => {
     if (!pattern.test(next)) return;

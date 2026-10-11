@@ -36,8 +36,11 @@ export const parseConfig = (config: unknown) => {
 
     if (!isRecord(raw)) return warn("not an object, skipped");
 
-    const definition = fieldRegistry[String(raw.type)];
-    if (!definition) return warn(`unsupported type "${String(raw.type)}", skipped`);
+    const type = raw.type;
+    if (typeof type !== "string") return warn("unsupported type, skipped");
+
+    const definition = Object.keys(fieldRegistry).includes(type) ? fieldRegistry[type] : undefined;
+    if (!definition) return warn(`unsupported type "${type}", skipped`);
 
     const base = parseBase(raw, warn);
     if (!base) return;
@@ -68,24 +71,32 @@ export const buildDraft = (fields: ParsedField[], incident: Incident): Incident 
 const isVisible = ({ spec }: ParsedField, data: Incident) =>
   !spec.visibleWhen || evaluate(spec.visibleWhen, data);
 
-const withoutHiddenValues = (fields: ParsedField[], visible: ParsedField[], draft: Incident) => {
-  const visiblePaths = new Set(visible.map((field) => field.spec.path));
+const isOwnedBy = (path: string, owners: ParsedField[]) =>
+  owners.some((field) => field.spec.path === path || field.spec.path.startsWith(`${path}.`));
 
-  return fields
-    .filter((field) => !visiblePaths.has(field.spec.path))
-    .reduce((data, field) => removeAt(data, field.spec.path), draft);
-};
+const hiddenPaths = (fields: ParsedField[], visible: ParsedField[]) =>
+  [
+    ...new Set(fields.filter((field) => !visible.includes(field)).map((field) => field.spec.path)),
+  ].filter((path) => !isOwnedBy(path, visible));
+
+const sameFields = (left: ParsedField[], right: ParsedField[]) =>
+  left.length === right.length && left.every((field, index) => field === right[index]);
 
 export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedField[] => {
-  let visible = fields.filter((field) => isVisible(field, draft));
+  let visible = fields;
 
-  while (true) {
-    const data = withoutHiddenValues(fields, visible, draft);
-    const stillVisible = visible.filter((field) => isVisible(field, data));
-    if (stillVisible.length === visible.length) return visible;
+  for (let pass = 0; pass <= fields.length; pass++) {
+    const data = hiddenPaths(fields, visible).reduce(
+      (masked, path) => removeAt(masked, path),
+      draft,
+    );
+    const next = fields.filter((field) => isVisible(field, data));
 
-    visible = stillVisible;
+    if (sameFields(next, visible)) return next;
+    visible = next;
   }
+
+  return visible;
 };
 
 export const validateFields = (fields: ParsedField[], draft: Incident): Record<string, string> =>
@@ -103,16 +114,38 @@ export const validateFields = (fields: ParsedField[], draft: Incident): Record<s
     }),
   );
 
-const changedFields = (fields: ParsedField[], draft: Incident, incident: Incident) =>
-  fields.filter((field) => !equals(readValue(field, draft), readValue(field, incident)));
+const submittableDraft = (fields: ParsedField[], draft: Incident, incident: Incident) => {
+  const visible = visibleFields(fields, draft);
 
-export const changedPaths = (fields: ParsedField[], draft: Incident, incident: Incident) =>
-  changedFields(fields, draft, incident).map((field) => field.spec.path);
+  return {
+    visible,
+    draft: hiddenPaths(fields, visible).reduce((result, path) => {
+      const original = getAt(incident, path);
 
-export const applySubmission = (fields: ParsedField[], draft: Incident, incident: Incident) =>
-  changedFields(fields, draft, incident).reduce((result, field) => {
-    const value = readValue(field, draft);
-    const { path } = field.spec;
+      return original === undefined ? removeAt(result, path) : setAt(result, path, original);
+    }, draft),
+  };
+};
 
-    return field.definition.isEmpty(value) ? removeAt(result, path) : setAt(result, path, value);
+const changedPathsIn = (visible: ParsedField[], draft: Incident, incident: Incident) =>
+  [...new Set(visible.map((field) => field.spec.path))].filter(
+    (path) => !equals(getAt(draft, path), getAt(incident, path)),
+  );
+
+export const changedPaths = (fields: ParsedField[], draft: Incident, incident: Incident) => {
+  const submittable = submittableDraft(fields, draft, incident);
+
+  return changedPathsIn(submittable.visible, submittable.draft, incident);
+};
+
+export const applySubmission = (fields: ParsedField[], draft: Incident, incident: Incident) => {
+  const { visible, draft: cleanDraft } = submittableDraft(fields, draft, incident);
+
+  return changedPathsIn(visible, cleanDraft, incident).reduce((result, path) => {
+    const cleared = visible
+      .filter((field) => field.spec.path === path)
+      .every((field) => field.definition.isEmpty(readValue(field, cleanDraft)));
+
+    return cleared ? removeAt(result, path) : setAt(result, path, getAt(cleanDraft, path));
   }, incident);
+};

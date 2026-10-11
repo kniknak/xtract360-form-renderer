@@ -138,4 +138,14 @@ describe("App", () => {
     }
     expect(changed.queryByText("vehicle.tradeValue")).not.toBeInTheDocument();
   });
+
+  it("stops typing digits before a number would lose precision", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(screen.getByLabelText("Driver Age"));
+    await user.type(screen.getByLabelText("Driver Age"), "12345678901234567890");
+
+    expect(screen.getByLabelText("Driver Age")).toHaveValue("123456789012345");
+  });
 });

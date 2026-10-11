@@ -50,7 +50,7 @@ const DynamicForm = ({ fields, incident, onSubmit }: DynamicFormProps) => {
       return;
     }
 
-    onSubmit(applySubmission(visible, draft, incident), changedPaths(visible, draft, incident));
+    onSubmit(applySubmission(fields, draft, incident), changedPaths(fields, draft, incident));
   };
 
   return (

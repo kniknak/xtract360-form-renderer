@@ -53,6 +53,33 @@ describe("parseConfig", () => {
     });
   });
 
+  it("skips fields whose type is not a registered string, without throwing", () => {
+    const { fields, warnings } = parseConfig([
+      { type: "__proto__", label: "A", path: "a" },
+      { type: "constructor", label: "B", path: "b" },
+      { type: "toString", label: "C", path: "c" },
+      { type: { toString: 5 }, label: "D", path: "d" },
+    ]);
+
+    expect(fields).toEqual([]);
+    expect(warnings).toEqual([
+      'Field 1: unsupported type "__proto__", skipped',
+      'Field 2: unsupported type "constructor", skipped',
+      'Field 3: unsupported type "toString", skipped',
+      "Field 4: unsupported type, skipped",
+    ]);
+  });
+
+  it("skips a numeric field whose bounds are not numbers", () => {
+    const { fields, warnings } = parseConfig([
+      { type: "integerInput", label: "Age", path: "age", min: "5" },
+      { type: "currencyInput", label: "Price", path: "price", max: null, currencies: ["EUR"] },
+    ]);
+
+    expect(fields).toEqual([]);
+    expect(warnings).toEqual(["Field 1: invalid min, skipped", "Field 2: invalid max, skipped"]);
+  });
+
   it("applies integer defaults of min 0 and max infinity", () => {
     const [field] = parse([{ type: "integerInput", label: "Age", path: "age" }]);
 
@@ -105,6 +132,14 @@ describe("validateFields", () => {
       "field-0": "Required",
       "field-1": "Must be between 18 and 99",
       "field-2": "Currency is required",
+    });
+  });
+
+  it("rejects stored currency amounts with more than two decimals", () => {
+    expect(
+      validateFields(fields, { name: "Ann", value: { currency: "EUR", value: 3554.555 } }),
+    ).toEqual({
+      "field-2": "At most 2 decimal places",
     });
   });
 
@@ -176,6 +211,91 @@ describe("visibleFields", () => {
       expect(labels({ type: "Car", payload: 2000 })).toEqual(["Type"]);
     });
 
+    it("shows a field whose condition only holds once a hidden field's value is ignored", () => {
+      const negated = parse([
+        { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+        {
+          type: "integerInput",
+          label: "Payload",
+          path: "payload",
+          visibleWhen: { path: "type", equals: "Van" },
+        },
+        {
+          type: "textInput",
+          label: "No payload",
+          path: "reason",
+          visibleWhen: { not: { path: "payload", gt: 0 } },
+        },
+      ]);
+
+      expect(
+        visibleFields(negated, { type: "Car", payload: 500 }).map((f) => f.spec.label),
+      ).toEqual(["Type", "No payload"]);
+    });
+
+    it("keeps a visible nested field's value when its hidden parent path is ignored", () => {
+      const nested = parse([
+        { type: "enumInput", label: "Mode", path: "mode", values: ["a", "b"] },
+        {
+          type: "textInput",
+          label: "Vehicle",
+          path: "vehicle",
+          visibleWhen: { path: "mode", equals: "a" },
+        },
+        { type: "enumInput", label: "Vehicle type", path: "vehicle.type", values: ["Van"] },
+        {
+          type: "textInput",
+          label: "Van note",
+          path: "note",
+          visibleWhen: { path: "vehicle.type", equals: "Van" },
+        },
+      ]);
+
+      expect(
+        visibleFields(nested, { mode: "b", vehicle: { type: "Van" } }).map((f) => f.spec.label),
+      ).toEqual(["Mode", "Vehicle type", "Van note"]);
+    });
+
+    it("ignores a hidden field's value even when the dependent field comes first", () => {
+      const forward = parse([
+        {
+          type: "textInput",
+          label: "Heavy load note",
+          path: "note",
+          visibleWhen: { path: "payload", gt: 1000 },
+        },
+        { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+        {
+          type: "integerInput",
+          label: "Payload",
+          path: "payload",
+          visibleWhen: { path: "type", equals: "Van" },
+        },
+      ]);
+
+      expect(
+        visibleFields(forward, { type: "Car", payload: 2000 }).map((f) => f.spec.label),
+      ).toEqual(["Type"]);
+    });
+
+    it("ignores a value shared only by hidden fields", () => {
+      const coSharers = parse([
+        { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+        { type: "textInput", label: "A", path: "x", visibleWhen: { path: "type", equals: "Van" } },
+        { type: "textInput", label: "B", path: "x", visibleWhen: { path: "type", equals: "Van" } },
+        {
+          type: "textInput",
+          label: "Secret note",
+          path: "note",
+          visibleWhen: { path: "x", equals: "secret" },
+        },
+      ]);
+
+      expect(
+        visibleFields(coSharers, { type: "Car", x: "secret" }).map((f) => f.spec.label),
+      ).toEqual(["Type"]);
+    });
+
     it("lets a visible field sharing a hidden field's path keep dependents visible", () => {
       expect(
         visibleFields(fields, { type: "Car", payload: 2000 }).map((f) => f.spec.label),
@@ -216,6 +336,39 @@ describe("applySubmission", () => {
 
     expect(fields[0].definition.toValue(data.price, fields[0].spec)).toEqual(data.price);
     expect(applySubmission(fields, draft, data)).toEqual(draft);
+  });
+
+  it("keeps an edit made through one of several fields sharing a path", () => {
+    const data = { shared: { currency: "EUR", value: 5 } };
+    const textFirst = parse([
+      { type: "textInput", label: "Text", path: "shared" },
+      { type: "currencyInput", label: "Money", path: "shared", currencies: ["EUR"] },
+    ]);
+    const currencyFirst = [...textFirst].reverse();
+
+    expect(applySubmission(textFirst, { shared: "typed" }, data)).toEqual({ shared: "typed" });
+    expect(applySubmission(currencyFirst, { shared: "typed" }, data)).toEqual({ shared: "typed" });
+  });
+
+  it("does not save an edit to a field that was hidden before submitting", () => {
+    const fields = parse([
+      { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+      { type: "currencyInput", label: "Price", path: "price", currencies: ["EUR"] },
+      {
+        type: "textInput",
+        label: "Memo",
+        path: "price.memo",
+        visibleWhen: { path: "type", equals: "Van" },
+      },
+    ]);
+    const data = { type: "Van", price: { currency: "EUR", value: 5 } };
+    const draft = { type: "Car", price: { currency: "EUR", value: 5, memo: "edited" } };
+
+    expect(changedPaths(fields, draft, data)).toEqual(["type"]);
+    expect(applySubmission(fields, draft, data)).toEqual({
+      type: "Car",
+      price: { currency: "EUR", value: 5 },
+    });
   });
 
   it("lists the paths a submission changes", () => {

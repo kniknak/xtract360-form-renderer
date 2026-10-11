@@ -2,13 +2,17 @@ import type { RawField } from "../../types";
 
 export type Bounds = { min: number; max: number };
 
-const optionalNumber = (value: unknown, fallback: number) =>
-  typeof value === "number" && Number.isFinite(value) ? value : fallback;
+const isBound = (value: unknown) => typeof value === "number" && Number.isFinite(value);
 
-export const parseBounds = (raw: RawField): Bounds => ({
-  min: optionalNumber(raw.min, 0),
-  max: optionalNumber(raw.max, Infinity),
-});
+export const parseBounds = ({ min, max }: RawField): Bounds | string => {
+  if (min !== undefined && !isBound(min)) return "invalid min";
+  if (max !== undefined && !isBound(max)) return "invalid max";
+
+  return {
+    min: typeof min === "number" ? min : 0,
+    max: typeof max === "number" ? max : Infinity,
+  };
+};
 
 export const boundsConflict = ({ min, max }: Bounds) =>
   min > max ? `min (${min}) is greater than max (${max}), no value can be valid` : undefined;

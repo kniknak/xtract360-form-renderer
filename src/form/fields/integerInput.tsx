@@ -6,7 +6,10 @@ import { boundsConflict, parseBounds, toNumber, validateRange } from "./shared/n
 type IntegerSpec = BaseSpec & Bounds & { type: "integerInput" };
 
 export const integerInput: FieldDefinition<IntegerSpec, number | null> = {
-  parse: (raw, base) => ({ ...base, ...parseBounds(raw), type: "integerInput" }),
+  parse: (raw, base) => {
+    const bounds = parseBounds(raw);
+    return typeof bounds === "string" ? bounds : { ...base, ...bounds, type: "integerInput" };
+  },
   toValue: toNumber,
   isEmpty: (value) => value === null,
   validate: (value, spec) =>
