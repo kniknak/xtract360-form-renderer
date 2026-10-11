@@ -71,13 +71,39 @@ export const buildDraft = (fields: ParsedField[], incident: Incident): Incident 
 const isVisible = ({ spec }: ParsedField, data: Incident) =>
   !spec.visibleWhen || evaluate(spec.visibleWhen, data);
 
-const isOwnedBy = (path: string, owners: ParsedField[]) =>
-  owners.some((field) => field.spec.path === path || field.spec.path.startsWith(`${path}.`));
-
 const hiddenPaths = (fields: ParsedField[], visible: ParsedField[]) =>
   [
     ...new Set(fields.filter((field) => !visible.includes(field)).map((field) => field.spec.path)),
-  ].filter((path) => !isOwnedBy(path, visible));
+  ].filter((path) => !visible.some((field) => field.spec.path === path));
+
+const parentPath = (path: string) => path.split(".").slice(0, -1).join(".");
+
+const canHold = (data: unknown, path: string) => {
+  const parent = parentPath(path);
+  const container = parent === "" ? data : getAt(data, parent);
+
+  return typeof container === "object" && container !== null;
+};
+
+const replaceHidden = (
+  fields: ParsedField[],
+  visible: ParsedField[],
+  data: Incident,
+  replace: (data: Incident, path: string) => Incident,
+): Incident =>
+  hiddenPaths(fields, visible).reduce((result, path) => {
+    if (!canHold(result, path)) return result;
+
+    const kept = visible.filter((field) => field.spec.path.startsWith(`${path}.`));
+
+    return kept.reduce(
+      (next, field) =>
+        getAt(result, field.spec.path) === undefined
+          ? next
+          : setAt(next, field.spec.path, getAt(result, field.spec.path)),
+      replace(result, path),
+    );
+  }, data);
 
 const sameFields = (left: ParsedField[], right: ParsedField[]) =>
   left.length === right.length && left.every((field, index) => field === right[index]);
@@ -86,10 +112,7 @@ export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedFie
   let visible = fields;
 
   for (let pass = 0; pass <= fields.length; pass++) {
-    const data = hiddenPaths(fields, visible).reduce(
-      (masked, path) => removeAt(masked, path),
-      draft,
-    );
+    const data = replaceHidden(fields, visible, draft, removeAt);
     const next = fields.filter((field) => isVisible(field, data));
 
     if (sameFields(next, visible)) return next;
@@ -119,11 +142,11 @@ const submittableDraft = (fields: ParsedField[], draft: Incident, incident: Inci
 
   return {
     visible,
-    draft: hiddenPaths(fields, visible).reduce((result, path) => {
+    draft: replaceHidden(fields, visible, draft, (result, path) => {
       const original = getAt(incident, path);
 
       return original === undefined ? removeAt(result, path) : setAt(result, path, original);
-    }, draft),
+    }),
   };
 };
 

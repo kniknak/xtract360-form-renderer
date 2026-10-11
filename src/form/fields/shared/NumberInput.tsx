@@ -24,12 +24,15 @@ const NumberInput = ({ value, decimals, onChange, ...props }: NumberInputProps) 
     setText((current) => (parseText(current) === value ? current : toText(value)));
   }, [value]);
 
-  const pattern = new RegExp(
-    `^-?\\d{0,${MAX_DIGITS - decimals}}${decimals > 0 ? `(\\.\\d{0,${decimals}})?` : ""}$`,
-  );
+  const decimalPattern = new RegExp(`^-?\\d{0,${MAX_DIGITS - decimals}}(\\.\\d{0,${decimals}})?$`);
+
+  const isAllowed = (next: string) =>
+    decimals > 0
+      ? decimalPattern.test(next)
+      : /^-?\d*$/.test(next) && (next === "" || next === "-" || Number.isSafeInteger(Number(next)));
 
   const handleChange = (next: string) => {
-    if (!pattern.test(next)) return;
+    if (!isAllowed(next)) return;
 
     setText(next);
     onChange(parseText(next));

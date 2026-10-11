@@ -296,6 +296,33 @@ describe("visibleFields", () => {
       ).toEqual(["Type"]);
     });
 
+    it("hides a hidden parent's values even when a child field stays visible", () => {
+      const parentChild = parse([
+        { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+        {
+          type: "currencyInput",
+          label: "Price",
+          path: "price",
+          currencies: ["EUR"],
+          visibleWhen: { path: "type", equals: "Van" },
+        },
+        { type: "textInput", label: "Memo", path: "price.memo" },
+        {
+          type: "textInput",
+          label: "Pricey note",
+          path: "note",
+          visibleWhen: { path: "price.value", gt: 1 },
+        },
+      ]);
+
+      expect(
+        visibleFields(parentChild, {
+          type: "Car",
+          price: { currency: "EUR", value: 5, memo: "m" },
+        }).map((f) => f.spec.label),
+      ).toEqual(["Type", "Memo"]);
+    });
+
     it("lets a visible field sharing a hidden field's path keep dependents visible", () => {
       expect(
         visibleFields(fields, { type: "Car", payload: 2000 }).map((f) => f.spec.label),
@@ -368,6 +395,25 @@ describe("applySubmission", () => {
     expect(applySubmission(fields, draft, data)).toEqual({
       type: "Car",
       price: { currency: "EUR", value: 5 },
+    });
+  });
+
+  it("keeps a visible parent's new value when a hidden child had stored data", () => {
+    const fields = parse([
+      { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+      { type: "textInput", label: "Price", path: "price" },
+      {
+        type: "textInput",
+        label: "Memo",
+        path: "price.memo",
+        visibleWhen: { path: "type", equals: "Van" },
+      },
+    ]);
+    const data = { type: "Van", price: { memo: "m" } };
+
+    expect(applySubmission(fields, { type: "Car", price: "typed" }, data)).toEqual({
+      type: "Car",
+      price: "typed",
     });
   });
 
