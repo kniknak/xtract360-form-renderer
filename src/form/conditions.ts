@@ -1,4 +1,5 @@
 import { equals } from "ramda";
+import { isRecord } from "./guards";
 import { getAt } from "./paths";
 
 export type Condition =
@@ -10,16 +11,13 @@ export type Condition =
   | { op: "gt" | "lt"; path: string; value: number }
   | { op: "filled"; path: string; value: boolean };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const parseList = (raw: unknown): Condition[] | undefined => {
   if (!Array.isArray(raw) || raw.length === 0) return undefined;
 
   const conditions = raw.map(parseCondition);
 
-  return conditions.every((condition) => condition !== undefined)
-    ? (conditions as Condition[])
+  return conditions.every((condition): condition is Condition => condition !== undefined)
+    ? conditions
     : undefined;
 };
 

@@ -1,4 +1,4 @@
-import type { RawField } from "../types";
+import type { RawField } from "../../types";
 
 export type Bounds = { min: number; max: number };
 
@@ -19,4 +19,6 @@ export const toNumber = (data: unknown): number | null =>
 const formatBound = (bound: number) => (Number.isFinite(bound) ? bound.toLocaleString() : "∞");
 
 export const validateRange = (value: number, { min, max }: Bounds) =>
-  value < min || value > max ? `Must be between ${formatBound(min)} and ${formatBound(max)}` : undefined;
+  value < min || value > max
+    ? `Must be between ${formatBound(min)} and ${formatBound(max)}`
+    : undefined;

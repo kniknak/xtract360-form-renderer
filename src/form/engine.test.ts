@@ -1,6 +1,13 @@
 import configurationToImplement from "../data/configurationToImplement.json";
 import incident from "../data/incident.json";
-import { applySubmission, buildDraft, changedPaths, parseConfig, validateFields, visibleFields } from "./engine";
+import {
+  applySubmission,
+  buildDraft,
+  changedPaths,
+  parseConfig,
+  validateFields,
+  visibleFields,
+} from "./engine";
 import type { Incident } from "./types";
 
 const parse = (config: unknown[]) => parseConfig(config).fields;
@@ -33,11 +40,17 @@ describe("parseConfig", () => {
   });
 
   it("keeps a field with contradictory bounds and warns about it", () => {
-    const { fields, warnings } = parseConfig([{ type: "integerInput", label: "Age", path: "age", min: 100, max: 10 }]);
+    const { fields, warnings } = parseConfig([
+      { type: "integerInput", label: "Age", path: "age", min: 100, max: 10 },
+    ]);
 
     expect(fields).toHaveLength(1);
-    expect(warnings).toEqual(["Field 1: min (100) is greater than max (10), no value can be valid"]);
-    expect(validateFields(fields, { age: 50 })).toEqual({ "field-0": "Must be between 100 and 10" });
+    expect(warnings).toEqual([
+      "Field 1: min (100) is greater than max (10), no value can be valid",
+    ]);
+    expect(validateFields(fields, { age: 50 })).toEqual({
+      "field-0": "Must be between 100 and 10",
+    });
   });
 
   it("applies integer defaults of min 0 and max infinity", () => {
@@ -52,7 +65,7 @@ describe("parseConfig", () => {
     ]);
 
     expect(fields[0].spec.visibleWhen).toBeUndefined();
-    expect(warnings).toEqual(["Field 1: unsupported visibleWhen ignored"]);
+    expect(warnings).toEqual(["Field 1: unsupported visibleWhen, ignored"]);
   });
 });
 
@@ -70,7 +83,9 @@ describe("buildDraft", () => {
   });
 
   it("ignores defaults that are invalid for the field", () => {
-    const fields = parse([{ type: "enumInput", label: "Type", path: "type", values: ["Car"], defaultValue: "Boat" }]);
+    const fields = parse([
+      { type: "enumInput", label: "Type", path: "type", values: ["Car"], defaultValue: "Boat" },
+    ]);
 
     expect(buildDraft(fields, {})).toEqual({});
   });
@@ -84,10 +99,12 @@ describe("validateFields", () => {
   ]);
 
   it("flags missing required fields, out of range numbers and partial currency", () => {
-    expect(validateFields(fields, { name: " ", age: 120, value: { currency: "", value: 10 } })).toEqual({
-      "field-0": "This field is required",
+    expect(
+      validateFields(fields, { name: " ", age: 120, value: { currency: "", value: 10 } }),
+    ).toEqual({
+      "field-0": "Required",
       "field-1": "Must be between 18 and 99",
-      "field-2": "Select a currency",
+      "field-2": "Currency is required",
     });
   });
 
@@ -99,12 +116,19 @@ describe("validateFields", () => {
 describe("visibleFields", () => {
   const fields = parse([
     { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
-    { type: "integerInput", label: "Payload", path: "payload", visibleWhen: { path: "type", equals: "Van" } },
+    {
+      type: "integerInput",
+      label: "Payload",
+      path: "payload",
+      visibleWhen: { path: "type", equals: "Van" },
+    },
     {
       type: "textInput",
       label: "Note",
       path: "note",
-      visibleWhen: { any: [{ path: "value.value", gt: 1000 }, { not: { path: "type", filled: true } }] },
+      visibleWhen: {
+        any: [{ path: "value.value", gt: 1000 }, { not: { path: "type", filled: true } }],
+      },
     },
   ]);
 
@@ -116,29 +140,47 @@ describe("visibleFields", () => {
   ])("for %j shows %j", (draft, labels) => {
     expect(visibleFields(fields, draft).map((f) => f.spec.label)).toEqual(labels);
   });
-});
 
-describe("visibleFields with dependent conditions", () => {
-  const fields = parse([
-    { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
-    { type: "integerInput", label: "Payload", path: "payload", visibleWhen: { path: "type", equals: "Van" } },
-    { type: "textInput", label: "Heavy load note", path: "note", visibleWhen: { path: "payload", gt: 1000 } },
-    { type: "textInput", label: "Shared", path: "payload", visibleWhen: { path: "type", equals: "Car" } },
-  ]);
-
-  it("ignores values of hidden fields when evaluating other conditions", () => {
-    const labels = (draft: Incident) => visibleFields(fields.slice(0, 3), draft).map((f) => f.spec.label);
-
-    expect(labels({ type: "Van", payload: 2000 })).toEqual(["Type", "Payload", "Heavy load note"]);
-    expect(labels({ type: "Car", payload: 2000 })).toEqual(["Type"]);
-  });
-
-  it("keeps a hidden field's path when a visible field shares it", () => {
-    expect(visibleFields(fields, { type: "Car", payload: 2000 }).map((f) => f.spec.label)).toEqual([
-      "Type",
-      "Heavy load note",
-      "Shared",
+  describe("with dependent conditions", () => {
+    const fields = parse([
+      { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+      {
+        type: "integerInput",
+        label: "Payload",
+        path: "payload",
+        visibleWhen: { path: "type", equals: "Van" },
+      },
+      {
+        type: "textInput",
+        label: "Heavy load note",
+        path: "note",
+        visibleWhen: { path: "payload", gt: 1000 },
+      },
+      {
+        type: "textInput",
+        label: "Shared",
+        path: "payload",
+        visibleWhen: { path: "type", equals: "Car" },
+      },
     ]);
+
+    it("ignores values of hidden fields when evaluating other conditions", () => {
+      const labels = (draft: Incident) =>
+        visibleFields(fields.slice(0, 3), draft).map((f) => f.spec.label);
+
+      expect(labels({ type: "Van", payload: 2000 })).toEqual([
+        "Type",
+        "Payload",
+        "Heavy load note",
+      ]);
+      expect(labels({ type: "Car", payload: 2000 })).toEqual(["Type"]);
+    });
+
+    it("lets a visible field sharing a hidden field's path keep dependents visible", () => {
+      expect(
+        visibleFields(fields, { type: "Car", payload: 2000 }).map((f) => f.spec.label),
+      ).toEqual(["Type", "Heavy load note", "Shared"]);
+    });
   });
 });
 
@@ -165,20 +207,26 @@ describe("applySubmission", () => {
     });
   });
 
-  it("keeps unknown keys on a currency object when it is edited", () => {
+  it("keeps unknown keys on a currency object through toValue and submission", () => {
     const data = { price: { currency: "EUR", value: 100, rate: 1.2 } };
-    const fields = parse([{ type: "currencyInput", label: "Price", path: "price", currencies: ["EUR"] }]);
+    const fields = parse([
+      { type: "currencyInput", label: "Price", path: "price", currencies: ["EUR"] },
+    ]);
     const draft = { price: { currency: "EUR", value: 150, rate: 1.2 } };
 
-    expect(applySubmission(fields, draft, data)).toEqual(draft);
     expect(fields[0].definition.toValue(data.price, fields[0].spec)).toEqual(data.price);
+    expect(applySubmission(fields, draft, data)).toEqual(draft);
   });
 
   it("lists the paths a submission changes", () => {
     const fields = parse(configurationToImplement);
     const draft = buildDraft(fields, incident);
 
-    expect(changedPaths(fields, draft, incident)).toEqual(["driver.name", "vehicle.type", "driver.age"]);
+    expect(changedPaths(fields, draft, incident)).toEqual([
+      "driver.name",
+      "vehicle.type",
+      "driver.age",
+    ]);
   });
 
   it("leaves data untouched when the form is submitted unchanged", () => {

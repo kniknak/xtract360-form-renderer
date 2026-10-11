@@ -1,11 +1,9 @@
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
+import { stringList } from "../guards";
 import type { BaseSpec, FieldDefinition } from "../types";
 
-export type EnumSpec = BaseSpec & { type: "enumInput"; values: string[] };
-
-export const stringList = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+type EnumSpec = BaseSpec & { type: "enumInput"; values: string[] };
 
 export const enumInput: FieldDefinition<EnumSpec, string> = {
   parse: (raw, base) => {
@@ -14,7 +12,6 @@ export const enumInput: FieldDefinition<EnumSpec, string> = {
   },
   toValue: (data, spec) => (typeof data === "string" && spec.values.includes(data) ? data : ""),
   isEmpty: (value) => value === "",
-  validate: () => undefined,
   Component: ({ id, spec, value, error, onChange }) => (
     <TextField
       id={id}

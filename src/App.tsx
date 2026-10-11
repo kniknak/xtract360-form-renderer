@@ -1,11 +1,6 @@
 import { useMemo, useState } from "react";
-import Accordion from "@mui/material/Accordion";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import AccordionSummary from "@mui/material/AccordionSummary";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
@@ -13,37 +8,41 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { parse as parseJsonc, type ParseError } from "jsonc-parser";
-import { initialIncident, presets } from "./data/presets";
+import { parse as parseJsonc } from "jsonc-parser";
+import type { ParseError } from "jsonc-parser";
+import ConfigEditor from "./components/ConfigEditor";
+import type { Sources } from "./components/ConfigEditor";
+import OutputPanel from "./components/OutputPanel";
+import type { Saved } from "./components/OutputPanel";
+import { initialIncidentText, presets } from "./data/presets";
 import DynamicForm from "./form/DynamicForm";
 import { parseConfig } from "./form/engine";
-import type { Incident } from "./form/types";
+import { isRecord } from "./form/guards";
 
-type Sources = { config: string; incident: string };
-type Saved = { incident: Incident; changed: string[] };
+const CUSTOM = -1;
 
-const readJson = (label: string, text: string) => {
+const readJson = (text: string): unknown => {
   const errors: ParseError[] = [];
   const value: unknown = parseJsonc(text, errors, { allowTrailingComma: true });
-  if (errors.length > 0) throw new Error(`${label} is not valid JSON`);
-  return value;
+  return errors.length > 0 ? undefined : value;
 };
 
-const load = ({ config, incident }: Sources) => {
-  try {
-    const data = readJson("Incident data", incident);
-    if (typeof data !== "object" || data === null || Array.isArray(data)) {
-      throw new Error("Incident data must be an object");
-    }
-    return { ...parseConfig(readJson("Configuration", config)), incident: data as Incident };
-  } catch (error) {
-    return { error: (error as Error).message };
-  }
+const load = ({ configText, incidentText }: Sources) => {
+  const config = readJson(configText);
+  if (config === undefined) return { error: "Configuration is not valid JSON" };
+
+  const incident = readJson(incidentText);
+  if (!isRecord(incident)) return { error: "Incident data must be a JSON object" };
+
+  return { ...parseConfig(config), incident };
 };
 
 const App = () => {
   const [presetIndex, setPresetIndex] = useState(0);
-  const [editing, setEditing] = useState<Sources>({ config: presets[0].config, incident: initialIncident });
+  const [editing, setEditing] = useState<Sources>({
+    configText: presets[0].configText,
+    incidentText: initialIncidentText,
+  });
   const [applied, setApplied] = useState({ sources: editing, version: 0 });
   const [saved, setSaved] = useState<Saved>();
 
@@ -57,13 +56,25 @@ const App = () => {
 
   const selectPreset = (index: number) => {
     setPresetIndex(index);
-    apply({ ...editing, config: presets[index].config });
+    apply({ ...editing, configText: presets[index].configText });
+  };
+
+  const applyEdits = () => {
+    setPresetIndex(CUSTOM);
+    apply(editing);
   };
 
   return (
     <Box sx={{ bgcolor: "grey.100", minHeight: "100vh", py: 4 }}>
       <Container maxWidth="lg">
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} gap={2} flexWrap="wrap">
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={3}
+          gap={2}
+          flexWrap="wrap"
+        >
           <Typography variant="h4" component="h1">
             Dynamic Form Renderer
           </Typography>
@@ -80,37 +91,13 @@ const App = () => {
                 {preset.name}
               </MenuItem>
             ))}
+            <MenuItem value={CUSTOM} disabled>
+              Custom (edited)
+            </MenuItem>
           </TextField>
         </Stack>
 
-        <Accordion disableGutters sx={{ mb: 3 }}>
-          <AccordionSummary>
-            <Typography>Edit configuration &amp; incident data</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Grid container spacing={2}>
-              {(["config", "incident"] as const).map((source) => (
-                <Grid item xs={12} md={6} key={source}>
-                  <TextField
-                    label={source === "config" ? "Configuration (JSON)" : "Incident data (JSON)"}
-                    multiline
-                    fullWidth
-                    minRows={12}
-                    maxRows={24}
-                    value={editing[source]}
-                    onChange={(event) => setEditing({ ...editing, [source]: event.target.value })}
-                    InputProps={{ sx: { fontFamily: "monospace", fontSize: 13 } }}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-            <Stack direction="row" justifyContent="flex-end" mt={2}>
-              <Button variant="outlined" onClick={() => apply(editing)}>
-                Apply
-              </Button>
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
+        <ConfigEditor sources={editing} onChange={setEditing} onApply={applyEdits} />
 
         {"error" in loaded ? (
           <Alert severity="error">{loaded.error}</Alert>
@@ -137,28 +124,7 @@ const App = () => {
               </Paper>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h5" mb={2}>
-                  Output
-                </Typography>
-                {saved ? (
-                  <>
-                    <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center" mb={2} data-testid="changed">
-                      <Typography variant="body2" color="text.secondary">
-                        {saved.changed.length > 0 ? "Changed:" : "No changes"}
-                      </Typography>
-                      {saved.changed.map((path) => (
-                        <Chip key={path} size="small" color="primary" variant="outlined" label={path} />
-                      ))}
-                    </Stack>
-                    <Box component="pre" sx={{ m: 0, fontSize: 13, overflow: "auto" }} data-testid="output">
-                      {JSON.stringify(saved.incident, null, 2)}
-                    </Box>
-                  </>
-                ) : (
-                  <Typography color="text.secondary">Submit the form to see the updated incident data.</Typography>
-                )}
-              </Paper>
+              <OutputPanel saved={saved} />
             </Grid>
           </Grid>
         )}

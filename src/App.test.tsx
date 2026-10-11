@@ -35,7 +35,7 @@ describe("App", () => {
     expect(screen.queryByLabelText(/Payload/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
-    expect(screen.getAllByText("This field is required")).toHaveLength(2);
+    expect(screen.getAllByText("Required")).toHaveLength(2);
     expect(screen.queryByTestId("output")).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/Driver Name/), "Ann");
@@ -44,7 +44,10 @@ describe("App", () => {
     await user.type(await screen.findByLabelText(/Payload/), "800");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(output()).toMatchObject({ driver: { name: "Ann" }, vehicle: { type: "Van", payloadKg: 800 } });
+    expect(output()).toMatchObject({
+      driver: { name: "Ann" },
+      vehicle: { type: "Van", payloadKg: 800 },
+    });
   });
 
   it("applies a pasted configuration with comments, new order, labels and paths", async () => {
@@ -64,7 +67,9 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
     const form = screen.getByRole("button", { name: "Save changes" }).closest("form")!;
-    const labels = within(form).getAllByRole("textbox").map((input) => (input as HTMLInputElement).labels?.[0]?.textContent);
+    const labels = within(form)
+      .getAllByRole("textbox")
+      .map((input) => (input as HTMLInputElement).labels?.[0]?.textContent);
     expect(labels).toEqual(["Passengers", "Registration"]);
     expect(screen.getByLabelText("Registration")).toHaveValue("ABC1234");
     expect(screen.queryByLabelText("Driver Name")).not.toBeInTheDocument();
@@ -84,6 +89,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
     expect(screen.getByText("Configuration is not valid JSON")).toBeInTheDocument();
+    expect(screen.getByLabelText("Configuration")).toHaveTextContent("Custom (edited)");
   });
 
   it("handles the sample configuration where every field shares one path", async () => {

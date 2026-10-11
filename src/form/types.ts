@@ -5,7 +5,6 @@ export type Incident = Record<string, unknown>;
 export type RawField = Record<string, unknown>;
 
 export type BaseSpec = {
-  type: string;
   label: string;
   path: string;
   required: boolean;
@@ -25,7 +24,7 @@ export type FieldDefinition<S extends BaseSpec, V> = {
   parse: (raw: RawField, base: BaseSpec) => S | string;
   toValue: (data: unknown, spec: S) => V;
   isEmpty: (value: V) => boolean;
-  validate: (value: V, spec: S) => string | undefined;
+  validate?: (value: V, spec: S) => string | undefined;
   lint?: (spec: S) => string | undefined;
   Component: ComponentType<FieldProps<S, V>>;
 };
@@ -33,7 +32,7 @@ export type FieldDefinition<S extends BaseSpec, V> = {
 export type AnyFieldDefinition = FieldDefinition<any, any>;
 
 export type ParsedField = {
-  key: string;
+  id: string;
   spec: BaseSpec;
   definition: AnyFieldDefinition;
 };

@@ -1,14 +1,9 @@
 import { equals } from "ramda";
-import { parseCondition, evaluate } from "./conditions";
+import { evaluate, parseCondition } from "./conditions";
 import { fieldRegistry } from "./fields/registry";
+import { isRecord } from "./guards";
 import { getAt, removeAt, setAt } from "./paths";
 import type { BaseSpec, Incident, ParsedField, RawField } from "./types";
-
-export type ParseResult = { fields: ParsedField[]; warnings: string[] };
-export type Errors = Record<string, string>;
-
-const isRecord = (value: unknown): value is RawField =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const parseBase = (raw: RawField, warn: (message: string) => void): BaseSpec | undefined => {
   if (typeof raw.path !== "string" || raw.path.trim() === "") {
@@ -17,10 +12,9 @@ const parseBase = (raw: RawField, warn: (message: string) => void): BaseSpec | u
   }
 
   const visibleWhen = parseCondition(raw.visibleWhen);
-  if (raw.visibleWhen !== undefined && !visibleWhen) warn("unsupported visibleWhen ignored");
+  if (raw.visibleWhen !== undefined && !visibleWhen) warn("unsupported visibleWhen, ignored");
 
   return {
-    type: String(raw.type),
     label: typeof raw.label === "string" ? raw.label : raw.path,
     path: raw.path,
     required: raw.required === true,
@@ -29,11 +23,13 @@ const parseBase = (raw: RawField, warn: (message: string) => void): BaseSpec | u
   };
 };
 
-export const parseConfig = (config: unknown): ParseResult => {
-  if (!Array.isArray(config)) return { fields: [], warnings: ["Configuration must be a list of fields"] };
-
+export const parseConfig = (config: unknown) => {
   const warnings: string[] = [];
   const fields: ParsedField[] = [];
+
+  if (!Array.isArray(config)) {
+    return { fields, warnings: ["Configuration must be a list of fields"] };
+  }
 
   config.forEach((raw, index) => {
     const warn = (message: string) => warnings.push(`Field ${index + 1}: ${message}`);
@@ -52,26 +48,25 @@ export const parseConfig = (config: unknown): ParseResult => {
     const problem = definition.lint?.(spec);
     if (problem) warn(problem);
 
-    fields.push({ key: `field-${index}`, spec, definition });
+    fields.push({ id: `field-${index}`, spec, definition });
   });
 
   return { fields, warnings };
 };
 
-const readValue = ({ spec, definition }: ParsedField, data: unknown) =>
+export const readValue = ({ spec, definition }: ParsedField, data: unknown) =>
   definition.toValue(getAt(data, spec.path), spec);
 
 export const buildDraft = (fields: ParsedField[], incident: Incident): Incident =>
-  fields.reduce((draft, field) => {
-    const { spec, definition } = field;
+  fields.reduce((draft, { spec, definition }) => {
     if (getAt(draft, spec.path) !== undefined || spec.defaultValue === undefined) return draft;
 
     const value = definition.toValue(spec.defaultValue, spec);
     return definition.isEmpty(value) ? draft : setAt(draft, spec.path, value);
   }, incident);
 
-export const isVisible = ({ spec }: ParsedField, draft: Incident) =>
-  !spec.visibleWhen || evaluate(spec.visibleWhen, draft);
+const isVisible = ({ spec }: ParsedField, data: Incident) =>
+  !spec.visibleWhen || evaluate(spec.visibleWhen, data);
 
 const withoutHiddenValues = (fields: ParsedField[], visible: ParsedField[], draft: Incident) => {
   const visiblePaths = new Set(visible.map((field) => field.spec.path));
@@ -82,25 +77,29 @@ const withoutHiddenValues = (fields: ParsedField[], visible: ParsedField[], draf
 };
 
 export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedField[] => {
-  const visible = fields.filter((field) => isVisible(field, draft));
-  if (visible.length === fields.length) return visible;
+  let visible = fields.filter((field) => isVisible(field, draft));
 
-  const data = withoutHiddenValues(fields, visible, draft);
-  const stillVisible = visible.filter((field) => isVisible(field, data));
+  while (true) {
+    const data = withoutHiddenValues(fields, visible, draft);
+    const stillVisible = visible.filter((field) => isVisible(field, data));
+    if (stillVisible.length === visible.length) return visible;
 
-  return stillVisible.length === visible.length ? visible : visibleFields(visible, data);
+    visible = stillVisible;
+  }
 };
 
-export const validateFields = (fields: ParsedField[], draft: Incident): Errors =>
+export const validateFields = (fields: ParsedField[], draft: Incident): Record<string, string> =>
   Object.fromEntries(
     fields.flatMap((field) => {
+      const { spec, definition } = field;
       const value = readValue(field, draft);
-      const empty = field.definition.isEmpty(value);
-      const error = empty
-        ? field.spec.required ? "This field is required" : undefined
-        : field.definition.validate(value, field.spec);
+      const error = definition.isEmpty(value)
+        ? spec.required
+          ? "Required"
+          : undefined
+        : definition.validate?.(value, spec);
 
-      return error ? [[field.key, error]] : [];
+      return error ? [[field.id, error]] : [];
     }),
   );
 
@@ -110,7 +109,7 @@ const changedFields = (fields: ParsedField[], draft: Incident, incident: Inciden
 export const changedPaths = (fields: ParsedField[], draft: Incident, incident: Incident) =>
   changedFields(fields, draft, incident).map((field) => field.spec.path);
 
-export const applySubmission = (fields: ParsedField[], draft: Incident, incident: Incident): Incident =>
+export const applySubmission = (fields: ParsedField[], draft: Incident, incident: Incident) =>
   changedFields(fields, draft, incident).reduce((result, field) => {
     const value = readValue(field, draft);
     const { path } = field.spec;

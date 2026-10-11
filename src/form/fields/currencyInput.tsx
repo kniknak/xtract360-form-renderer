@@ -1,18 +1,17 @@
+import FormHelperText from "@mui/material/FormHelperText";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import { isRecord, stringList } from "../guards";
 import type { BaseSpec, FieldDefinition } from "../types";
-import { stringList } from "./enumInput";
-import NumberInput from "./NumberInput";
-import { type Bounds, boundsConflict, parseBounds, toNumber, validateRange } from "./numbers";
+import NumberInput from "./shared/NumberInput";
+import type { Bounds } from "./shared/numbers";
+import { boundsConflict, parseBounds, toNumber, validateRange } from "./shared/numbers";
 
-export type CurrencySpec = BaseSpec & Bounds & { type: "currencyInput"; currencies: string[] };
-export type CurrencyValue = Record<string, unknown> & { currency: string; value: number | null };
+type CurrencySpec = BaseSpec & Bounds & { type: "currencyInput"; currencies: string[] };
+type Money = Record<string, unknown> & { currency: string; value: number | null };
 
-const isRecord = (data: unknown): data is Record<string, unknown> =>
-  typeof data === "object" && data !== null;
-
-export const currencyInput: FieldDefinition<CurrencySpec, CurrencyValue> = {
+export const currencyInput: FieldDefinition<CurrencySpec, Money> = {
   parse: (raw, base) => {
     const currencies = stringList(raw.currencies);
     return currencies.length > 0
@@ -20,46 +19,56 @@ export const currencyInput: FieldDefinition<CurrencySpec, CurrencyValue> = {
       : "no valid currencies";
   },
   toValue: (data, spec) => {
-    if (!isRecord(data)) return { currency: "", value: null };
+    const money = isRecord(data) ? data : {};
+    const { currency } = money;
+    const known = typeof currency === "string" && spec.currencies.includes(currency);
 
-    const currency = typeof data.currency === "string" && spec.currencies.includes(data.currency) ? data.currency : "";
-    return { ...data, currency, value: toNumber(data.value) };
+    return { ...money, currency: known ? currency : "", value: toNumber(money.value) };
   },
   isEmpty: ({ currency, value }) => currency === "" && value === null,
   validate: ({ currency, value }, spec) => {
-    if (currency === "") return "Select a currency";
-    if (value === null) return "Enter an amount";
+    if (currency === "") return "Currency is required";
+    if (value === null) return "Amount is required";
     return validateRange(value, spec);
   },
   lint: boundsConflict,
-  Component: ({ id, spec, value, error, onChange }) => (
-    <Stack direction="row" spacing={1}>
-      <TextField
-        select
-        label="Currency"
-        required={spec.required}
-        value={value.currency}
-        error={Boolean(error) && value.currency === ""}
-        onChange={(event) => onChange({ ...value, currency: event.target.value })}
-        sx={{ minWidth: 120 }}
-      >
-        {spec.currencies.map((currency) => (
-          <MenuItem key={currency} value={currency}>
-            {currency}
-          </MenuItem>
-        ))}
-      </TextField>
-      <NumberInput
-        id={id}
-        fullWidth
-        label={spec.label}
-        required={spec.required}
-        value={value.value}
-        decimals={2}
-        error={Boolean(error)}
-        helperText={error}
-        onChange={(amount) => onChange({ ...value, value: amount })}
-      />
-    </Stack>
-  ),
+  Component: ({ id, spec, value: money, error, onChange }) => {
+    const currencyMissing = money.currency === "";
+
+    return (
+      <Stack>
+        <Stack direction="row" spacing={1}>
+          <TextField
+            select
+            label="Currency"
+            value={money.currency}
+            error={Boolean(error) && currencyMissing}
+            onChange={(event) => onChange({ ...money, currency: event.target.value })}
+            sx={{ minWidth: 120 }}
+          >
+            {spec.currencies.map((currency) => (
+              <MenuItem key={currency} value={currency}>
+                {currency}
+              </MenuItem>
+            ))}
+          </TextField>
+          <NumberInput
+            id={id}
+            fullWidth
+            label={spec.label}
+            required={spec.required}
+            value={money.value}
+            decimals={2}
+            error={Boolean(error) && !currencyMissing}
+            onChange={(amount) => onChange({ ...money, value: amount })}
+          />
+        </Stack>
+        {error && (
+          <FormHelperText error sx={{ mx: 1.75 }}>
+            {error}
+          </FormHelperText>
+        )}
+      </Stack>
+    );
+  },
 };

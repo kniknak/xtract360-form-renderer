@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import TextField, { type TextFieldProps } from "@mui/material/TextField";
+import TextField from "@mui/material/TextField";
+import type { TextFieldProps } from "@mui/material/TextField";
 
 type NumberInputProps = Omit<TextFieldProps, "value" | "onChange"> & {
   value: number | null;

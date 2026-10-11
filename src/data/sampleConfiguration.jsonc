@@ -1,28 +1,28 @@
 [
-    {
-      "type": "textInput",
-      "label": "This is a text input", // The text to be displayed
-      "path": "store.the.data.here" // The path within the data structure to read data from and write data to
-    },
-    {
-      "type": "integerInput", // As above, but only accepts numerical integers as values
-      "label": "This is a integer input", // The text to be displayed
-      "path": "store.the.data.here", // The path within the data structure to read data from and write data to
-      "min": 0, // Optional, defaults to 0 - Sets the min number that can be assigned
-      "max": 100 // Optional, defaults to infinite - Sets the max number that can be assigned,
-    },
-    {
-      "type": "enumInput",
-      "label": "This is a enum input", // The text to be displayed
-      "path": "store.the.data.here", // The path within the data structure to read data from and write data to
-      "values": ["yes", "no", "maybe"] // Acceptable values
-    },
-    {
-      "type": "currencyInput", // It should store the data on the path as {'currency': '<currency>', 'amount': <amount>}
-      "label": "This is a currency input", // The text to be displayed
-      "path": "store.the.data.here", // The path within the data structure to read data from and write data to
-      "min": 0, // Optional, defaults to 0 - Sets the min number that can be assigned
-      "max": 100, // Optional, defaults to infinite - Sets the max number that can be assigned,
-      "currencies": ["EUR", "USD", "GBP"] // List of the allowed currencies that can be selected
-    }
-  ]
+  {
+    "type": "textInput",
+    "label": "This is a text input", // The text to be displayed
+    "path": "store.the.data.here", // The path within the data structure to read data from and write data to
+  },
+  {
+    "type": "integerInput", // As above, but only accepts numerical integers as values
+    "label": "This is a integer input", // The text to be displayed
+    "path": "store.the.data.here", // The path within the data structure to read data from and write data to
+    "min": 0, // Optional, defaults to 0 - Sets the min number that can be assigned
+    "max": 100, // Optional, defaults to infinite - Sets the max number that can be assigned,
+  },
+  {
+    "type": "enumInput",
+    "label": "This is a enum input", // The text to be displayed
+    "path": "store.the.data.here", // The path within the data structure to read data from and write data to
+    "values": ["yes", "no", "maybe"], // Acceptable values
+  },
+  {
+    "type": "currencyInput", // It should store the data on the path as {'currency': '<currency>', 'amount': <amount>}
+    "label": "This is a currency input", // The text to be displayed
+    "path": "store.the.data.here", // The path within the data structure to read data from and write data to
+    "min": 0, // Optional, defaults to 0 - Sets the min number that can be assigned
+    "max": 100, // Optional, defaults to infinite - Sets the max number that can be assigned,
+    "currencies": ["EUR", "USD", "GBP"], // List of the allowed currencies that can be selected
+  },
+]
