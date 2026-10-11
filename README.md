@@ -13,6 +13,13 @@ The configuration picker switches between the provided configurations. **Edit co
 incident data** accepts any configuration (JSON with comments is fine) — paste a new one and press
 **Apply**.
 
+## Demo
+
+[![Demo walkthrough (2:51)](docs/demo-poster.png)](docs/demo.mp4)
+
+A 2:51 recording of the real app ([docs/demo.mp4](docs/demo.mp4)): the provided configuration,
+required and conditional fields, pasting a new configuration, and the spec's sample configuration.
+
 ## Stages covered
 
 | #   | Stage                                                              | Where                                     |
