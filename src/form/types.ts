@@ -21,11 +21,10 @@ export type FieldProps<S extends BaseSpec, V> = {
 };
 
 export type FieldDefinition<S extends BaseSpec, V> = {
-  parse: (raw: RawField, base: BaseSpec) => S | string;
+  parse: (raw: RawField, base: BaseSpec, warn: (message: string) => void) => S | undefined;
   toValue: (data: unknown, spec: S) => V;
   isEmpty: (value: V) => boolean;
   validate?: (value: V, spec: S) => string | undefined;
-  lint?: (spec: S) => string | undefined;
   Component: ComponentType<FieldProps<S, V>>;
 };
 

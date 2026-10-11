@@ -34,9 +34,9 @@ incident ───────────────────────�
 ```
 
 - **Field registry** — each field type is one module exporting a `FieldDefinition`: `parse` the
-  type-specific config, `toValue` to coerce stored data into the widget's value, `isEmpty`, an
-  optional `validate`, an optional `lint` (config warnings) and the `Component`. Adding a type
-  means one file plus one registry line.
+  type-specific config (reporting problems through a `warn` callback), `toValue` to coerce stored
+  data into the widget's value, `isEmpty`, an optional `validate` and the `Component`. Adding a
+  type means one file plus one registry line.
 - **Draft** — the form edits a copy of the incident (with config `defaultValue`s filled in where
   the incident has nothing). Fields read and write it by path, so conditions see live values and
   incident values through the same lookup.

@@ -4,18 +4,29 @@ export type Bounds = { min: number; max: number };
 
 const isBound = (value: unknown) => typeof value === "number" && Number.isFinite(value);
 
-export const parseBounds = ({ min, max }: RawField): Bounds | string => {
-  if (min !== undefined && !isBound(min)) return "invalid min";
-  if (max !== undefined && !isBound(max)) return "invalid max";
+export const parseBounds = (
+  { min, max }: RawField,
+  warn: (message: string) => void,
+): Bounds | undefined => {
+  if (min !== undefined && !isBound(min)) {
+    warn("invalid min, skipped");
+    return undefined;
+  }
+  if (max !== undefined && !isBound(max)) {
+    warn("invalid max, skipped");
+    return undefined;
+  }
 
-  return {
+  const bounds = {
     min: typeof min === "number" ? min : 0,
     max: typeof max === "number" ? max : Infinity,
   };
-};
+  if (bounds.min > bounds.max) {
+    warn(`min (${bounds.min}) is greater than max (${bounds.max}), no value can be valid`);
+  }
 
-export const boundsConflict = ({ min, max }: Bounds) =>
-  min > max ? `min (${min}) is greater than max (${max}), no value can be valid` : undefined;
+  return bounds;
+};
 
 export const toNumber = (data: unknown): number | null =>
   typeof data === "number" && Number.isFinite(data) ? data : null;

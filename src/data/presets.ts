@@ -1,5 +1,5 @@
 import configurationToImplement from "./configurationToImplement.json?raw";
-import incident from "./incident.json?raw";
+import initialIncidentText from "./incident.json?raw";
 import requiredAndConditional from "./requiredAndConditional.json?raw";
 import sampleConfiguration from "./sampleConfiguration.jsonc?raw";
 
@@ -9,4 +9,4 @@ export const presets = [
   { name: "Sample configuration (spec)", configText: sampleConfiguration },
 ];
 
-export const initialIncidentText = incident;
+export { initialIncidentText };

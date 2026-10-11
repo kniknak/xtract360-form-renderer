@@ -6,9 +6,14 @@ import type { BaseSpec, FieldDefinition } from "../types";
 type EnumSpec = BaseSpec & { type: "enumInput"; values: string[] };
 
 export const enumInput: FieldDefinition<EnumSpec, string> = {
-  parse: (raw, base) => {
+  parse: (raw, base, warn) => {
     const values = stringList(raw.values);
-    return values.length > 0 ? { ...base, type: "enumInput", values } : "no valid values";
+    if (values.length === 0) {
+      warn("no valid values, skipped");
+      return undefined;
+    }
+
+    return { ...base, type: "enumInput", values };
   },
   toValue: (data, spec) => (typeof data === "string" && spec.values.includes(data) ? data : ""),
   isEmpty: (value) => value === "",

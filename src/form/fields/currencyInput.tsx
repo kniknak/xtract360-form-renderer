@@ -6,22 +6,23 @@ import { isRecord, stringList } from "../guards";
 import type { BaseSpec, FieldDefinition } from "../types";
 import NumberInput from "./shared/NumberInput";
 import type { Bounds } from "./shared/numbers";
-import { boundsConflict, parseBounds, toNumber, validateRange } from "./shared/numbers";
+import { parseBounds, toNumber, validateRange } from "./shared/numbers";
 
 type CurrencySpec = BaseSpec & Bounds & { type: "currencyInput"; currencies: string[] };
 type Money = Record<string, unknown> & { currency: string; value: number | null };
 
-const hasValidPrecision = (value: number) => /^-?\d+(\.\d{1,2})?$/.test(String(value));
-
 export const currencyInput: FieldDefinition<CurrencySpec, Money> = {
-  parse: (raw, base) => {
-    const bounds = parseBounds(raw);
-    if (typeof bounds === "string") return bounds;
+  parse: (raw, base, warn) => {
+    const bounds = parseBounds(raw, warn);
+    if (!bounds) return undefined;
 
     const currencies = stringList(raw.currencies);
-    return currencies.length > 0
-      ? { ...base, ...bounds, type: "currencyInput", currencies }
-      : "no valid currencies";
+    if (currencies.length === 0) {
+      warn("no valid currencies, skipped");
+      return undefined;
+    }
+
+    return { ...base, ...bounds, type: "currencyInput", currencies };
   },
   toValue: (data, spec) => {
     const money = isRecord(data) ? data : {};
@@ -34,10 +35,9 @@ export const currencyInput: FieldDefinition<CurrencySpec, Money> = {
   validate: ({ currency, value }, spec) => {
     if (currency === "") return "Currency is required";
     if (value === null) return "Amount is required";
-    if (!hasValidPrecision(value)) return "At most 2 decimal places";
+    if (!/^-?\d+(\.\d{1,2})?$/.test(String(value))) return "At most 2 decimal places";
     return validateRange(value, spec);
   },
-  lint: boundsConflict,
   Component: ({ id, spec, value: money, error, onChange }) => {
     const currencyMissing = money.currency === "";
 

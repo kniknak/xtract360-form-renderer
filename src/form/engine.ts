@@ -39,19 +39,15 @@ export const parseConfig = (config: unknown) => {
     const type = raw.type;
     if (typeof type !== "string") return warn("unsupported type, skipped");
 
-    const definition = Object.keys(fieldRegistry).includes(type) ? fieldRegistry[type] : undefined;
-    if (!definition) return warn(`unsupported type "${type}", skipped`);
+    if (!Object.hasOwn(fieldRegistry, type)) return warn(`unsupported type "${type}", skipped`);
+
+    const definition = fieldRegistry[type];
 
     const base = parseBase(raw, warn);
     if (!base) return;
 
-    const spec = definition.parse(raw, base);
-    if (typeof spec === "string") return warn(`${spec}, skipped`);
-
-    const problem = definition.lint?.(spec);
-    if (problem) warn(problem);
-
-    fields.push({ id: `field-${index}`, spec, definition });
+    const spec = definition.parse(raw, base, warn);
+    if (spec) fields.push({ id: `field-${index}`, spec, definition });
   });
 
   return { fields, warnings };
@@ -68,18 +64,13 @@ export const buildDraft = (fields: ParsedField[], incident: Incident): Incident 
     return definition.isEmpty(value) ? draft : setAt(draft, spec.path, value);
   }, incident);
 
-const isVisible = ({ spec }: ParsedField, data: Incident) =>
-  !spec.visibleWhen || evaluate(spec.visibleWhen, data);
-
 const hiddenPaths = (fields: ParsedField[], visible: ParsedField[]) =>
   [
     ...new Set(fields.filter((field) => !visible.includes(field)).map((field) => field.spec.path)),
   ].filter((path) => !visible.some((field) => field.spec.path === path));
 
-const parentPath = (path: string) => path.split(".").slice(0, -1).join(".");
-
 const canHold = (data: unknown, path: string) => {
-  const parent = parentPath(path);
+  const parent = path.split(".").slice(0, -1).join(".");
   const container = parent === "" ? data : getAt(data, parent);
 
   return typeof container === "object" && container !== null;
@@ -105,18 +96,17 @@ const replaceHidden = (
     );
   }, data);
 
-const sameFields = (left: ParsedField[], right: ParsedField[]) =>
-  left.length === right.length && left.every((field, index) => field === right[index]);
-
 export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedField[] => {
   let previous = fields;
   let visible = fields;
 
   for (let pass = 0; pass <= fields.length; pass++) {
     const data = replaceHidden(fields, visible, draft, removeAt);
-    const next = fields.filter((field) => isVisible(field, data));
+    const next = fields.filter(({ spec }) => !spec.visibleWhen || evaluate(spec.visibleWhen, data));
 
-    if (sameFields(next, visible)) return next;
+    if (next.length === visible.length && next.every((field, index) => field === visible[index])) {
+      return next;
+    }
     previous = visible;
     visible = next;
   }
@@ -124,20 +114,24 @@ export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedFie
   return visible.filter((field) => previous.includes(field));
 };
 
-export const validateFields = (fields: ParsedField[], draft: Incident): Record<string, string> =>
-  Object.fromEntries(
-    fields.flatMap((field) => {
-      const { spec, definition } = field;
-      const value = readValue(field, draft);
-      const error = definition.isEmpty(value)
-        ? spec.required
-          ? "Required"
-          : undefined
-        : definition.validate?.(value, spec);
+const fieldError = (field: ParsedField, draft: Incident) => {
+  const { spec, definition } = field;
+  const value = readValue(field, draft);
 
-      return error ? [[field.id, error]] : [];
-    }),
-  );
+  if (definition.isEmpty(value)) return spec.required ? "Required" : undefined;
+  return definition.validate?.(value, spec);
+};
+
+export const validateFields = (fields: ParsedField[], draft: Incident) => {
+  const errors: Record<string, string> = {};
+
+  for (const field of fields) {
+    const error = fieldError(field, draft);
+    if (error) errors[field.id] = error;
+  }
+
+  return errors;
+};
 
 const submittableDraft = (fields: ParsedField[], draft: Incident, incident: Incident) => {
   const visible = visibleFields(fields, draft);

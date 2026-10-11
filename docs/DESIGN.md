@@ -27,7 +27,10 @@
   every path whose value differs from the incoming incident, applied defaults included.
 - **Hidden fields** are not validated and not written, even if the user filled them before the
   condition changed, and their values are ignored by other fields' conditions (a hidden "payload"
-  cannot keep a "heavy load note" visible) unless a visible field shares the same path.
+  cannot keep a "heavy load note" visible) unless a visible field shares the same path. This holds
+  regardless of field order and for nested paths (a hidden `price` with a visible `price.memo`);
+  visibility is recomputed until it settles, and a field whose condition never settles (it depends
+  on its own value) is hidden.
 - **Fields sharing a path** (as in the sample config) are allowed; each coerces the shared value to
   its own type.
 - **Conditions evaluate against the draft**, which starts as the incident, so "input data" and
