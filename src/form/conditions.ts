@@ -3,75 +3,41 @@ import { isRecord } from "./guards";
 import { getAt } from "./paths";
 
 export type Condition =
-  | { op: "all"; conditions: Condition[] }
-  | { op: "any"; conditions: Condition[] }
-  | { op: "not"; condition: Condition }
-  | { op: "equals"; path: string; value: unknown }
-  | { op: "in"; path: string; values: unknown[] }
-  | { op: "gt" | "lt"; path: string; value: number }
-  | { op: "filled"; path: string; value: boolean };
+  | { all: Condition[] }
+  | { any: Condition[] }
+  | { not: Condition }
+  | { path: string; equals: unknown }
+  | { path: string; in: unknown[] }
+  | { path: string; gt: number }
+  | { path: string; lt: number };
 
-const parseList = (raw: unknown): Condition[] | undefined => {
-  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+const isConditionList = (value: unknown) =>
+  Array.isArray(value) && value.length > 0 && value.every(isCondition);
 
-  const conditions = raw.map(parseCondition);
+export const isCondition = (raw: unknown): raw is Condition => {
+  if (!isRecord(raw)) return false;
+  if ("all" in raw) return isConditionList(raw.all);
+  if ("any" in raw) return isConditionList(raw.any);
+  if ("not" in raw) return isCondition(raw.not);
+  if (typeof raw.path !== "string" || raw.path === "") return false;
 
-  return conditions.every((condition): condition is Condition => condition !== undefined)
-    ? conditions
-    : undefined;
+  return (
+    "equals" in raw ||
+    Array.isArray(raw.in) ||
+    typeof raw.gt === "number" ||
+    typeof raw.lt === "number"
+  );
 };
-
-export const parseCondition = (raw: unknown): Condition | undefined => {
-  if (!isRecord(raw)) return undefined;
-
-  if ("all" in raw) {
-    const conditions = parseList(raw.all);
-    return conditions && { op: "all", conditions };
-  }
-
-  if ("any" in raw) {
-    const conditions = parseList(raw.any);
-    return conditions && { op: "any", conditions };
-  }
-
-  if ("not" in raw) {
-    const condition = parseCondition(raw.not);
-    return condition && { op: "not", condition };
-  }
-
-  const { path } = raw;
-  if (typeof path !== "string" || path === "") return undefined;
-
-  if ("equals" in raw) return { op: "equals", path, value: raw.equals };
-  if (Array.isArray(raw.in)) return { op: "in", path, values: raw.in };
-  if (typeof raw.gt === "number") return { op: "gt", path, value: raw.gt };
-  if (typeof raw.lt === "number") return { op: "lt", path, value: raw.lt };
-  if (typeof raw.filled === "boolean") return { op: "filled", path, value: raw.filled };
-
-  return undefined;
-};
-
-const isFilled = (value: unknown) => value !== undefined && value !== null && value !== "";
 
 export const evaluate = (condition: Condition, data: unknown): boolean => {
-  switch (condition.op) {
-    case "all":
-      return condition.conditions.every((c) => evaluate(c, data));
-    case "any":
-      return condition.conditions.some((c) => evaluate(c, data));
-    case "not":
-      return !evaluate(condition.condition, data);
-    case "equals":
-      return equals(getAt(data, condition.path), condition.value);
-    case "in":
-      return condition.values.some((value) => equals(getAt(data, condition.path), value));
-    case "gt":
-    case "lt": {
-      const actual = getAt(data, condition.path);
-      if (typeof actual !== "number") return false;
-      return condition.op === "gt" ? actual > condition.value : actual < condition.value;
-    }
-    case "filled":
-      return isFilled(getAt(data, condition.path)) === condition.value;
-  }
+  if ("all" in condition) return condition.all.every((c) => evaluate(c, data));
+  if ("any" in condition) return condition.any.some((c) => evaluate(c, data));
+  if ("not" in condition) return !evaluate(condition.not, data);
+
+  const actual = getAt(data, condition.path);
+  if ("equals" in condition) return equals(actual, condition.equals);
+  if ("in" in condition) return condition.in.some((value) => equals(actual, value));
+  if (typeof actual !== "number") return false;
+
+  return "gt" in condition ? actual > condition.gt : actual < condition.lt;
 };

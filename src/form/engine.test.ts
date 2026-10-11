@@ -127,7 +127,7 @@ describe("visibleFields", () => {
       label: "Note",
       path: "note",
       visibleWhen: {
-        any: [{ path: "value.value", gt: 1000 }, { not: { path: "type", filled: true } }],
+        any: [{ path: "value.value", gt: 1000 }, { not: { path: "type", in: ["Car", "Van"] } }],
       },
     },
   ]);

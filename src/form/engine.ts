@@ -1,5 +1,5 @@
 import { equals } from "ramda";
-import { evaluate, parseCondition } from "./conditions";
+import { evaluate, isCondition } from "./conditions";
 import { fieldRegistry } from "./fields/registry";
 import { isRecord } from "./guards";
 import { getAt, removeAt, setAt } from "./paths";
@@ -11,7 +11,7 @@ const parseBase = (raw: RawField, warn: (message: string) => void): BaseSpec | u
     return undefined;
   }
 
-  const visibleWhen = parseCondition(raw.visibleWhen);
+  const visibleWhen = isCondition(raw.visibleWhen) ? raw.visibleWhen : undefined;
   if (raw.visibleWhen !== undefined && !visibleWhen) warn("unsupported visibleWhen, ignored");
 
   return {

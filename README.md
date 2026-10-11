@@ -51,7 +51,6 @@ incident ───────────────────────�
 { "visibleWhen": { "path": "vehicle.type", "equals": "Van" } }
 { "visibleWhen": { "path": "vehicle.type", "in": ["Van", "Car"] } }
 { "visibleWhen": { "path": "vehicle.tradeValue.value", "gt": 3000 } }   // also "lt"
-{ "visibleWhen": { "path": "driver.name", "filled": true } }
 { "visibleWhen": { "all": [ … ] } }   // also "any", "not"
 ```
 
