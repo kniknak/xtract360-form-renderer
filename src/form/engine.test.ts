@@ -1,6 +1,7 @@
 import configurationToImplement from "../data/configurationToImplement.json";
 import incident from "../data/incident.json";
 import { applySubmission, buildDraft, parseConfig, validateFields, visibleFields } from "./engine";
+import type { Incident } from "./types";
 
 const parse = (config: unknown[]) => parseConfig(config).fields;
 
@@ -107,6 +108,30 @@ describe("visibleFields", () => {
     [{}, ["Type", "Note"]],
   ])("for %j shows %j", (draft, labels) => {
     expect(visibleFields(fields, draft).map((f) => f.spec.label)).toEqual(labels);
+  });
+});
+
+describe("visibleFields with dependent conditions", () => {
+  const fields = parse([
+    { type: "enumInput", label: "Type", path: "type", values: ["Car", "Van"] },
+    { type: "integerInput", label: "Payload", path: "payload", visibleWhen: { path: "type", equals: "Van" } },
+    { type: "textInput", label: "Heavy load note", path: "note", visibleWhen: { path: "payload", gt: 1000 } },
+    { type: "textInput", label: "Shared", path: "payload", visibleWhen: { path: "type", equals: "Car" } },
+  ]);
+
+  it("ignores values of hidden fields when evaluating other conditions", () => {
+    const labels = (draft: Incident) => visibleFields(fields.slice(0, 3), draft).map((f) => f.spec.label);
+
+    expect(labels({ type: "Van", payload: 2000 })).toEqual(["Type", "Payload", "Heavy load note"]);
+    expect(labels({ type: "Car", payload: 2000 })).toEqual(["Type"]);
+  });
+
+  it("keeps a hidden field's path when a visible field shares it", () => {
+    expect(visibleFields(fields, { type: "Car", payload: 2000 }).map((f) => f.spec.label)).toEqual([
+      "Type",
+      "Heavy load note",
+      "Shared",
+    ]);
   });
 });
 

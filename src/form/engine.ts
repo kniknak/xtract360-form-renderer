@@ -1,7 +1,7 @@
 import { equals } from "ramda";
 import { parseCondition, evaluate } from "./conditions";
 import { fieldRegistry } from "./fields/registry";
-import { getAt, setAt } from "./paths";
+import { getAt, removeAt, setAt } from "./paths";
 import type { BaseSpec, Incident, ParsedField, RawField } from "./types";
 
 export type ParseResult = { fields: ParsedField[]; warnings: string[] };
@@ -70,8 +70,23 @@ export const buildDraft = (fields: ParsedField[], incident: Incident): Incident 
 export const isVisible = ({ spec }: ParsedField, draft: Incident) =>
   !spec.visibleWhen || evaluate(spec.visibleWhen, draft);
 
-export const visibleFields = (fields: ParsedField[], draft: Incident) =>
-  fields.filter((field) => isVisible(field, draft));
+const withoutHiddenValues = (fields: ParsedField[], visible: ParsedField[], draft: Incident) => {
+  const visiblePaths = new Set(visible.map((field) => field.spec.path));
+
+  return fields
+    .filter((field) => !visiblePaths.has(field.spec.path))
+    .reduce((data, field) => removeAt(data, field.spec.path), draft);
+};
+
+export const visibleFields = (fields: ParsedField[], draft: Incident): ParsedField[] => {
+  const visible = fields.filter((field) => isVisible(field, draft));
+  if (visible.length === fields.length) return visible;
+
+  const data = withoutHiddenValues(fields, visible, draft);
+  const stillVisible = visible.filter((field) => isVisible(field, data));
+
+  return stillVisible.length === visible.length ? visible : visibleFields(visible, data);
+};
 
 export const validateFields = (fields: ParsedField[], draft: Incident): Errors =>
   Object.fromEntries(
