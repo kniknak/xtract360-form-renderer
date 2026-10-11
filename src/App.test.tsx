@@ -105,4 +105,31 @@ describe("App", () => {
     expect(output().store.the.data.here).toEqual({ currency: "GBP", value: 50 });
     expect(screen.getByLabelText("This is a text input")).toHaveValue("");
   });
+
+  it("shows a field's error when the user leaves it, before any save", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(screen.getByLabelText("Driver Age"));
+    await user.type(screen.getByLabelText("Driver Age"), "200");
+    expect(screen.queryByText("Must be between 0 and 130")).not.toBeInTheDocument();
+
+    await user.tab();
+    expect(screen.getByText("Must be between 0 and 130")).toBeInTheDocument();
+  });
+
+  it("lists the changed paths above the saved output", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Vehicle Regplate"), "9");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    const changed = within(screen.getByTestId("changed"));
+    expect(changed.getByText("Changed:")).toBeInTheDocument();
+    for (const path of ["driver.name", "vehicle.regplate", "vehicle.type", "driver.age"]) {
+      expect(changed.getByText(path)).toBeInTheDocument();
+    }
+    expect(changed.queryByText("vehicle.tradeValue")).not.toBeInTheDocument();
+  });
 });

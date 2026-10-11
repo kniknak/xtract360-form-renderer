@@ -12,13 +12,17 @@
 
 - **Precedence:** incident value → config `defaultValue` → empty. Data the customer already holds
   wins over a config default.
+- **Errors appear when a field is left** (focus moves outside it — moving between a currency's
+  dropdown and amount, or into a dropdown's menu, does not count), and for every field on Save.
+- **Contradictory bounds** (`min > max`) keep the field with a warning; it can never be valid.
+- **Currency objects keep unknown keys** (e.g. `rate`) when edited — only `currency` and `value` change.
 - **Currency amounts accept two decimals.** The spec calls it an integer input, but the sample
   incident stores `3554.5`; rejecting the existing data would block every submission.
 - **Spec drift:** the sample config comment says `amount`, the data and spec use `value` — `value`
   is used.
 - **Only changed fields write.** Submitting an untouched form returns the incident unchanged — no
   type coercion (`30` → `"30"`), no nulling of values a field cannot show, no sibling on a shared
-  path clobbering another. Clearing a value writes `null`.
+  path clobbering another. Clearing a value removes its key. The output lists the changed paths.
 - **Hidden fields** are not validated and not written, even if the user filled them before the
   condition changed, and their values are ignored by other fields' conditions (a hidden "payload"
   cannot keep a "heavy load note" visible) unless a visible field shares the same path.
@@ -34,6 +38,5 @@
 - Per-field memoisation if forms grow to hundreds of fields (the whole form re-renders on change).
 - Validating config at load time with a schema (zod) and surfacing it to config authors.
 - Numeric path segments index arrays (`drivers.0.name`); repeating groups would need a new field type.
-- Open edges: currency data keyed `amount` (as one spec comment says) is not read; extra keys on a
-  currency object are dropped when edited; stored data that violates the config blocks saving
-  until fixed (deliberately strict).
+- Open edges: currency data keyed `amount` (as one spec comment says) is not read; stored data that
+  violates the config blocks saving until fixed (deliberately strict).

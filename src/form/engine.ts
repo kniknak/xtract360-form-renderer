@@ -49,6 +49,9 @@ export const parseConfig = (config: unknown): ParseResult => {
     const spec = definition.parse(raw, base);
     if (typeof spec === "string") return warn(`${spec}, skipped`);
 
+    const problem = definition.lint?.(spec);
+    if (problem) warn(problem);
+
     fields.push({ key: `field-${index}`, spec, definition });
   });
 
@@ -101,10 +104,16 @@ export const validateFields = (fields: ParsedField[], draft: Incident): Errors =
     }),
   );
 
-export const applySubmission = (fields: ParsedField[], draft: Incident, incident: Incident): Incident =>
-  fields.reduce((result, field) => {
-    const value = readValue(field, draft);
-    if (equals(value, readValue(field, incident))) return result;
+const changedFields = (fields: ParsedField[], draft: Incident, incident: Incident) =>
+  fields.filter((field) => !equals(readValue(field, draft), readValue(field, incident)));
 
-    return setAt(result, field.spec.path, field.definition.isEmpty(value) ? null : value);
+export const changedPaths = (fields: ParsedField[], draft: Incident, incident: Incident) =>
+  changedFields(fields, draft, incident).map((field) => field.spec.path);
+
+export const applySubmission = (fields: ParsedField[], draft: Incident, incident: Incident): Incident =>
+  changedFields(fields, draft, incident).reduce((result, field) => {
+    const value = readValue(field, draft);
+    const { path } = field.spec;
+
+    return field.definition.isEmpty(value) ? removeAt(result, path) : setAt(result, path, value);
   }, incident);

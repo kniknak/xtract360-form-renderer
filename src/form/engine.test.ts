@@ -1,6 +1,6 @@
 import configurationToImplement from "../data/configurationToImplement.json";
 import incident from "../data/incident.json";
-import { applySubmission, buildDraft, parseConfig, validateFields, visibleFields } from "./engine";
+import { applySubmission, buildDraft, changedPaths, parseConfig, validateFields, visibleFields } from "./engine";
 import type { Incident } from "./types";
 
 const parse = (config: unknown[]) => parseConfig(config).fields;
@@ -24,13 +24,20 @@ describe("parseConfig", () => {
       { type: "dateInput", label: "Date", path: "a" },
       { type: "textInput", label: "No path" },
       { type: "enumInput", label: "Empty", path: "b", values: [] },
-      { type: "integerInput", label: "Bad range", path: "c", min: 10, max: 1 },
       "nonsense",
       { type: "textInput", label: "Kept", path: "d", unknownProp: true },
     ]);
 
     expect(fields.map((f) => f.spec.label)).toEqual(["Kept"]);
-    expect(warnings).toHaveLength(5);
+    expect(warnings).toHaveLength(4);
+  });
+
+  it("keeps a field with contradictory bounds and warns about it", () => {
+    const { fields, warnings } = parseConfig([{ type: "integerInput", label: "Age", path: "age", min: 100, max: 10 }]);
+
+    expect(fields).toHaveLength(1);
+    expect(warnings).toEqual(["Field 1: min (100) is greater than max (10), no value can be valid"]);
+    expect(validateFields(fields, { age: 50 })).toEqual({ "field-0": "Must be between 100 and 10" });
   });
 
   it("applies integer defaults of min 0 and max infinity", () => {
@@ -146,7 +153,7 @@ describe("applySubmission", () => {
     });
   });
 
-  it("nulls a cleared existing value and skips empty new ones", () => {
+  it("removes a cleared existing value and skips empty new ones", () => {
     const fields = parse([
       { type: "textInput", label: "Reg", path: "vehicle.regplate" },
       { type: "textInput", label: "Colour", path: "vehicle.colour" },
@@ -154,8 +161,24 @@ describe("applySubmission", () => {
 
     expect(applySubmission(fields, { vehicle: { regplate: "" } }, incident)).toEqual({
       ...incident,
-      vehicle: { ...incident.vehicle, regplate: null },
+      vehicle: { tradeValue: incident.vehicle.tradeValue },
     });
+  });
+
+  it("keeps unknown keys on a currency object when it is edited", () => {
+    const data = { price: { currency: "EUR", value: 100, rate: 1.2 } };
+    const fields = parse([{ type: "currencyInput", label: "Price", path: "price", currencies: ["EUR"] }]);
+    const draft = { price: { currency: "EUR", value: 150, rate: 1.2 } };
+
+    expect(applySubmission(fields, draft, data)).toEqual(draft);
+    expect(fields[0].definition.toValue(data.price, fields[0].spec)).toEqual(data.price);
+  });
+
+  it("lists the paths a submission changes", () => {
+    const fields = parse(configurationToImplement);
+    const draft = buildDraft(fields, incident);
+
+    expect(changedPaths(fields, draft, incident)).toEqual(["driver.name", "vehicle.type", "driver.age"]);
   });
 
   it("leaves data untouched when the form is submitted unchanged", () => {

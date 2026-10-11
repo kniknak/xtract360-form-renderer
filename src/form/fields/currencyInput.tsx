@@ -4,27 +4,26 @@ import TextField from "@mui/material/TextField";
 import type { BaseSpec, FieldDefinition } from "../types";
 import { stringList } from "./enumInput";
 import NumberInput from "./NumberInput";
-import { type Bounds, parseBounds, toNumber, validateRange } from "./numbers";
+import { type Bounds, boundsConflict, parseBounds, toNumber, validateRange } from "./numbers";
 
 export type CurrencySpec = BaseSpec & Bounds & { type: "currencyInput"; currencies: string[] };
-export type CurrencyValue = { currency: string; value: number | null };
+export type CurrencyValue = Record<string, unknown> & { currency: string; value: number | null };
 
 const isRecord = (data: unknown): data is Record<string, unknown> =>
   typeof data === "object" && data !== null;
 
 export const currencyInput: FieldDefinition<CurrencySpec, CurrencyValue> = {
   parse: (raw, base) => {
-    const bounds = parseBounds(raw);
-    if (typeof bounds === "string") return bounds;
-
     const currencies = stringList(raw.currencies);
-    return currencies.length > 0 ? { ...base, ...bounds, type: "currencyInput", currencies } : "no valid currencies";
+    return currencies.length > 0
+      ? { ...base, ...parseBounds(raw), type: "currencyInput", currencies }
+      : "no valid currencies";
   },
   toValue: (data, spec) => {
     if (!isRecord(data)) return { currency: "", value: null };
 
     const currency = typeof data.currency === "string" && spec.currencies.includes(data.currency) ? data.currency : "";
-    return { currency, value: toNumber(data.value) };
+    return { ...data, currency, value: toNumber(data.value) };
   },
   isEmpty: ({ currency, value }) => currency === "" && value === null,
   validate: ({ currency, value }, spec) => {
@@ -32,6 +31,7 @@ export const currencyInput: FieldDefinition<CurrencySpec, CurrencyValue> = {
     if (value === null) return "Enter an amount";
     return validateRange(value, spec);
   },
+  lint: boundsConflict,
   Component: ({ id, spec, value, error, onChange }) => (
     <Stack direction="row" spacing={1}>
       <TextField

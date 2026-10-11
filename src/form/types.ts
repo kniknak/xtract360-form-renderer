@@ -26,6 +26,7 @@ export type FieldDefinition<S extends BaseSpec, V> = {
   toValue: (data: unknown, spec: S) => V;
   isEmpty: (value: V) => boolean;
   validate: (value: V, spec: S) => string | undefined;
+  lint?: (spec: S) => string | undefined;
   Component: ComponentType<FieldProps<S, V>>;
 };
 

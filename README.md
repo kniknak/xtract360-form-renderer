@@ -56,8 +56,8 @@ incident ───────────────────────�
 
 ### Graceful degradation
 
-Unknown field types, missing paths, empty `values` / `currencies`, `min > max` and non-object
-entries are skipped with a visible warning. Unknown properties are ignored. An unsupported
+Unknown field types, missing paths, empty `values` / `currencies` and non-object entries are
+skipped with a visible warning; `min > max` keeps the field but warns. Unknown properties are ignored. An unsupported
 `visibleWhen` is dropped (field shown) with a warning. A default or stored value that does not fit
 the field (e.g. an enum default not in `values`) is ignored rather than rendered.
 

@@ -5,6 +5,7 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
@@ -19,6 +20,7 @@ import { parseConfig } from "./form/engine";
 import type { Incident } from "./form/types";
 
 type Sources = { config: string; incident: string };
+type Saved = { incident: Incident; changed: string[] };
 
 const readJson = (label: string, text: string) => {
   const errors: ParseError[] = [];
@@ -43,7 +45,7 @@ const App = () => {
   const [presetIndex, setPresetIndex] = useState(0);
   const [editing, setEditing] = useState<Sources>({ config: presets[0].config, incident: initialIncident });
   const [applied, setApplied] = useState({ sources: editing, version: 0 });
-  const [saved, setSaved] = useState<Incident>();
+  const [saved, setSaved] = useState<Saved>();
 
   const loaded = useMemo(() => load(applied.sources), [applied.sources]);
 
@@ -130,7 +132,7 @@ const App = () => {
                   key={applied.version}
                   fields={loaded.fields}
                   incident={loaded.incident}
-                  onSubmit={setSaved}
+                  onSubmit={(incident, changed) => setSaved({ incident, changed })}
                 />
               </Paper>
             </Grid>
@@ -140,9 +142,19 @@ const App = () => {
                   Output
                 </Typography>
                 {saved ? (
-                  <Box component="pre" sx={{ m: 0, fontSize: 13, overflow: "auto" }} data-testid="output">
-                    {JSON.stringify(saved, null, 2)}
-                  </Box>
+                  <>
+                    <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center" mb={2} data-testid="changed">
+                      <Typography variant="body2" color="text.secondary">
+                        {saved.changed.length > 0 ? "Changed:" : "No changes"}
+                      </Typography>
+                      {saved.changed.map((path) => (
+                        <Chip key={path} size="small" color="primary" variant="outlined" label={path} />
+                      ))}
+                    </Stack>
+                    <Box component="pre" sx={{ m: 0, fontSize: 13, overflow: "auto" }} data-testid="output">
+                      {JSON.stringify(saved.incident, null, 2)}
+                    </Box>
+                  </>
                 ) : (
                   <Typography color="text.secondary">Submit the form to see the updated incident data.</Typography>
                 )}

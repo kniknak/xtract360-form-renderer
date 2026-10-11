@@ -5,12 +5,13 @@ export type Bounds = { min: number; max: number };
 const optionalNumber = (value: unknown, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
-export const parseBounds = (raw: RawField): Bounds | string => {
-  const min = optionalNumber(raw.min, 0);
-  const max = optionalNumber(raw.max, Infinity);
+export const parseBounds = (raw: RawField): Bounds => ({
+  min: optionalNumber(raw.min, 0),
+  max: optionalNumber(raw.max, Infinity),
+});
 
-  return min <= max ? { min, max } : `min (${min}) is greater than max (${max})`;
-};
+export const boundsConflict = ({ min, max }: Bounds) =>
+  min > max ? `min (${min}) is greater than max (${max}), no value can be valid` : undefined;
 
 export const toNumber = (data: unknown): number | null =>
   typeof data === "number" && Number.isFinite(data) ? data : null;
